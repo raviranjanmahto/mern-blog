@@ -1,24 +1,23 @@
-const NodeCache = require("node-cache");
-const myCache = new NodeCache();
-
 const Blog = require("../models/blogModel");
 const Comment = require("../models/commentModel");
 const catchAsync = require("../utils/catchAsync");
+const AppError = require("../utils/appError");
+const cache = require("../utils/cache");
+const sendResponse = require("../utils/sendResponse");
 
 exports.postNewBlog = catchAsync(async (req, res) => {
   const newBlog = new Blog({ ...req.body, author: req.user._id });
   await newBlog.save();
 
   // Delete the cache entries for the related blog and all blogs
-  myCache.del([`relatedBlogs:${req.params.id}`, "blogs"]);
+  cache.del([`relatedBlogs:${req.params.id}`, "blogs"]);
 
-  res.status(200).json({ status: true, newBlog });
+  sendResponse(res, 200, true, newBlog);
 });
 
 exports.getAllBlog = catchAsync(async (req, res) => {
-  const cachedBlogs = myCache.get("blogs");
-  if (cachedBlogs)
-    return res.status(200).json({ status: true, blogs: cachedBlogs });
+  const cachedBlogs = cache.get("blogs");
+  if (cachedBlogs) return sendResponse(res, 200, true, cachedBlogs);
 
   const blogs = await Blog.find();
 
@@ -26,17 +25,16 @@ exports.getAllBlog = catchAsync(async (req, res) => {
   const plainBlogs = blogs.map(blog => blog.toObject());
 
   // cache the products
-  myCache.set("blogs", plainBlogs);
+  cache.set("blogs", plainBlogs);
 
-  res.status(200).json({ status: true, blogs });
+  sendResponse(res, 200, true, blogs);
 });
 
-exports.getSingleBlog = catchAsync(async (req, res) => {
+exports.getSingleBlog = catchAsync(async (req, res, next) => {
   const blogId = req.params.id;
-  const cachedBlog = myCache.get(`blog:${blogId}`);
+  const cachedBlog = cache.get(`blog:${blogId}`);
   if (cachedBlog)
-    return res.status(200).json({
-      status: true,
+    return sendResponse(res, 200, true, {
       blog: cachedBlog.blog,
       comments: cachedBlog.comments,
     });
@@ -46,57 +44,50 @@ exports.getSingleBlog = catchAsync(async (req, res) => {
     Blog.findById(blogId).populate("author", "name"),
     Comment.find({ blogId }).populate("userId", "name email"),
   ]);
-  if (!blog)
-    return res.status(404).json({ status: false, message: "Blog not found" });
+  if (!blog) return next(new AppError("Blog not found", 404));
 
   // cache the blog
   const plainBlog = blog.toObject();
   const plainComments = comments.map(comment => comment.toObject());
 
   // Cache the blog and its comments
-  myCache.set(`blog:${blogId}`, { blog: plainBlog, comments: plainComments });
+  cache.set(`blog:${blogId}`, { blog: plainBlog, comments: plainComments });
 
-  res
-    .status(200)
-    .json({ status: true, blog: plainBlog, comments: plainComments });
+  sendResponse(res, 200, true, { blog: plainBlog, comments: plainComments });
 });
 
-exports.updateBlog = catchAsync(async (req, res) => {
+exports.updateBlog = catchAsync(async (req, res, next) => {
   const id = req.params.id;
   const updatedBlog = await Blog.findByIdAndUpdate(id, req.body, {
     new: true,
     runValidators: true,
   });
-  if (!updatedBlog)
-    return res.status(404).json({ status: false, message: "Blog not found" });
+  if (!updatedBlog) return next(new AppError("Blog not found", 404));
 
   // Delete the cache entries for the deleted, related and all blogs
-  myCache.del([`blog:${id}`, `relatesBlogs:{id}`, "blogs"]);
+  cache.del([`blog:${id}`, `relatesBlogs:${id}`, "blogs"]);
 
-  res.status(200).json({ status: true, updatedBlog });
+  sendResponse(res, 200, true, updatedBlog);
 });
 
-exports.deleteBlog = catchAsync(async (req, res) => {
+exports.deleteBlog = catchAsync(async (req, res, next) => {
   const id = req.params.id;
   const deletedBlog = await Blog.findByIdAndDelete(id);
-  if (!deletedBlog)
-    return res.status(404).json({ status: false, message: "Blog not found" });
+  if (!deletedBlog) return next(new AppError("Blog not found", 404));
 
   // Delete the cache entries for the deleted, related and all blogs
-  myCache.del([`blog:${id}`, `relatesBlogs:{id}`, "blogs"]);
+  cache.del([`blog:${id}`, `relatesBlogs:${id}`, "blogs"]);
 
-  res.status(200).json({ status: true, deletedBlog });
+  sendResponse(res, 200, true, deletedBlog);
 });
 
-exports.getRelatedBlog = catchAsync(async (req, res) => {
+exports.getRelatedBlog = catchAsync(async (req, res, next) => {
   const id = req.params.id;
-  const cachedBlogs = myCache.get(`relatedBlogs:${id}`);
-  if (cachedBlogs)
-    return res.status(200).json({ status: true, relatedBlogs: cachedBlogs });
+  const cachedBlogs = cache.get(`relatedBlogs:${id}`);
+  if (cachedBlogs) return sendResponse(res, 200, true, cachedBlogs);
 
   const blog = await Blog.findById(id);
-  if (!blog)
-    return res.status(404).json({ status: false, message: "Blog not found" });
+  if (!blog) return next(new AppError("Blog not found", 404));
 
   // Find related blogs by category and exclude the current blog
   const relatedBlogs = await Blog.find({
@@ -108,7 +99,7 @@ exports.getRelatedBlog = catchAsync(async (req, res) => {
   const plainRelatedBlogs = relatedBlogs.map(blog => blog.toObject());
 
   // Cache the related blogs
-  myCache.set(`relatedBlogs:${id}`, plainRelatedBlogs);
+  cache.set(`relatedBlogs:${id}`, plainRelatedBlogs);
 
-  res.status(200).json({ status: true, relatedBlogs });
+  sendResponse(res, 200, true, relatedBlogs);
 });

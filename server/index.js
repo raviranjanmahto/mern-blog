@@ -6,10 +6,13 @@ const cookieParser = require("cookie-parser");
 
 const dbConnect = require("./config/dbConnect");
 const AppError = require("./utils/appError");
+const sendResponse = require("./utils/sendResponse");
 const errorGlobalMiddleware = require("./middlewares/errorMiddleware");
 const authRoutes = require("./routes/userRoute");
 const blogRoutes = require("./routes/blogRoute");
 const commentRoutes = require("./routes/commentRoute");
+
+const cacheRoutes = require("./routes/cacheRoute"); // Remove in production
 
 const port = process.env.PORT || 7018;
 
@@ -17,7 +20,7 @@ const app = express();
 
 // Allow requests from specific origins
 const corsOptions = {
-  origin: ["https://raviranjan-flipkart.vercel.app", "http://localhost:5173"],
+  origin: "http://localhost:5173",
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true, // Allow credentials
@@ -39,16 +42,14 @@ dbConnect(process.env.DATABASE_URI);
 
 // health check
 app.get("/", (req, res) => {
-  res.status(200).json({
-    status: "success",
-    message: "Server is up and running...",
-  });
+  sendResponse(res, 200, true, null, "Server is up and running...");
 });
 
 // Routes
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/blog", blogRoutes);
 app.use("/api/v1/comment", commentRoutes);
+app.use("/api/v1/cache", cacheRoutes); // Remove in production
 
 // 404 error handler for all other routes
 app.all("*", (req, res, next) =>
