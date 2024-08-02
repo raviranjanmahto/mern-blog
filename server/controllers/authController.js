@@ -18,6 +18,17 @@ exports.signup = catchAsync(async (req, res, next) => {
     return next(new AppError("Email already in use, Please login.", 400));
   const user = await User.create({ name, email, password });
 
+  // Generate a email reset token
+  const resetToken = user.createToken("emailVerification");
+  await user.save({ validateBeforeSave: false });
+
+  const URL = `${req.protocol}://${req.get(
+    "host"
+  )}/api/v1/auth/verify-email/${resetToken}`;
+
+  // send welcome email
+  await new Email(user, URL).sendWelcome();
+
   // Send JWT token with user info
   sendCookieToken(user, 201, res);
 });
@@ -38,20 +49,47 @@ exports.login = catchAsync(async (req, res, next) => {
   sendCookieToken(user, 200, res);
 });
 
+exports.verifyEmail = catchAsync(async (req, res, next) => {
+  const token = req.params.token;
+
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(req.params.token)
+    .digest("hex");
+
+  const user = await User.findOne({
+    emailVerificationToken: hashedToken,
+    emailVerificationExpires: { $gt: Date.now() }, // Token must be valid
+  });
+
+  if (!user) return next(new AppError("Token is invalid or has expired", 400));
+
+  // Set new password
+  user.emailVerificationToken = undefined;
+  user.emailVerificationExpires = undefined;
+  user.emailVerified = true;
+  await user.save({ validateBeforeSave: false });
+
+  sendResponse(res, 200, true, null, "Email verified successfully");
+});
+
 exports.logout = catchAsync(async (req, res, next) => {
   res.clearCookie("token");
   sendResponse(res, 200, true, null, "Logged out successfully");
 });
 
 exports.delete = catchAsync(async (req, res, next) => {
-  const user = await User.findByIdAndUpdate(req.user._id, { active: false });
+  await User.findByIdAndUpdate(req.user._id, { active: false });
 
   sendResponse(res, 200, true, null, "Deleted successfully");
 });
 
 exports.updateMe = catchAsync(async (req, res, next) => {
   const { name, email } = req.body;
-  const user = await User.findById(req.user._id);
+  const user = req.user;
+
+  if (!name && !email)
+    return next(new AppError("No fields provided for update"), 400);
 
   if (name) user.name = name;
   if (email) user.email = email;
@@ -62,8 +100,7 @@ exports.updateMe = catchAsync(async (req, res, next) => {
 });
 
 exports.getMe = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.user._id);
-  sendResponse(res, 200, true, user);
+  sendResponse(res, 200, true, req.user);
 });
 
 exports.forgotPassword = catchAsync(async (req, res, next) => {
@@ -147,6 +184,17 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
 exports.getAllUsers = catchAsync(async (req, res, next) => {
   const users = await User.find({});
   sendResponse(res, 200, true, users);
+});
+
+exports.updateUser = catchAsync(async (req, res) => {
+  const id = req.params.id;
+  const updatedUser = await User.findByIdAndUpdate(id, req.body, {
+    new: true,
+    runValidators: true,
+  });
+  if (!updatedUser) return next(new AppError("User not found!", 404));
+
+  sendResponse(res, 200, true, updatedUser, "Updated successfully");
 });
 
 exports.protect = catchAsync(async (req, res, next) => {

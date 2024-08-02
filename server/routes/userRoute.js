@@ -4,6 +4,7 @@ const authController = require("../controllers/authController");
 // Public methods
 router.post("/signup", authController.signup);
 router.post("/login", authController.login);
+router.get("/verify-email/:token", authController.verifyEmail);
 
 // Below are protected routes login required
 router.use(authController.protect);
@@ -12,6 +13,7 @@ router.post("/logout", authController.logout);
 router.delete("/delete", authController.delete);
 router.patch("/update-me", authController.updateMe);
 router.get("/me", authController.getMe);
+router.post("/forgot-password", authController.forgotPassword);
 router.patch("/reset-password/:token", authController.resetPassword);
 router.patch("/update-password", authController.updatePassword);
 
@@ -19,5 +21,6 @@ router.patch("/update-password", authController.updatePassword);
 router.use(authController.protectRoles("admin"));
 
 router.get("/all-users", authController.getAllUsers);
+router.patch("/update/:id", authController.updateUser);
 
 module.exports = router;

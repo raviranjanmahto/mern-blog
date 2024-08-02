@@ -19,7 +19,9 @@ exports.getAllBlog = catchAsync(async (req, res) => {
   const cachedBlogs = cache.get("blogs");
   if (cachedBlogs) return sendResponse(res, 200, true, cachedBlogs);
 
-  const blogs = await Blog.find();
+  const blogs = await Blog.find()
+    .populate("author", "email")
+    .sort({ createdAt: -1 });
 
   // Convert Mongoose documents to plain objects
   const plainBlogs = blogs.map(blog => blog.toObject());
@@ -75,10 +77,13 @@ exports.deleteBlog = catchAsync(async (req, res, next) => {
   const deletedBlog = await Blog.findByIdAndDelete(id);
   if (!deletedBlog) return next(new AppError("Blog not found", 404));
 
+  // Delete comments related to the blog
+  await Comment.deleteMany({ blogId: id });
+
   // Delete the cache entries for the deleted, related and all blogs
   cache.del([`blog:${id}`, `relatesBlogs:${id}`, "blogs"]);
 
-  sendResponse(res, 200, true, deletedBlog);
+  sendResponse(res, 200, true, null, "Blog deleted successfully");
 });
 
 exports.getRelatedBlog = catchAsync(async (req, res, next) => {

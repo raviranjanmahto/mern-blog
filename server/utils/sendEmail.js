@@ -7,9 +7,9 @@ module.exports = class Email {
   constructor(user, url) {
     // Set user email, first name, URL, and the sender's email
     this.to = user.email;
-    this.firstName = user.fName;
+    this.firstName = user.name.split(" ")[0];
     this.url = url;
-    this.from = `Raviranjan Mahto <${EMAIL}>`;
+    this.from = `MERN-Blog <${EMAIL}>`;
   }
 
   async newTransport() {
@@ -59,35 +59,44 @@ module.exports = class Email {
   async sendWelcome() {
     // Define HTML content for welcome email
     const html = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-      <h1>Welcome to Flipkart, ${this.firstName}!</h1>
-      <p>Thank you for signing up! We’re excited to have you on board. To complete your registration, please verify your email address by clicking the link below:</p>
-      <p><a href="${this.url}" style="display: inline-block; padding: 10px 20px; font-size: 16px; color: #fff; background-color: #007bff; text-decoration: none; border-radius: 5px;">Verify Your Email</a></p>
-      <p>If you have any questions, feel free to <a href="mailto:support@flipkart.com" style="color: #007bff; text-decoration: none;">contact our support team</a>.</p>
-      <p>Happy Shopping!</p>
-      <p>The Flipkart Team</p>
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px; max-width: 600px; margin: 0 auto;">
+      <h1 style="color: #333; text-align: left;">Welcome to Our Blog!</h1>
+      <p style="text-align: left; font-size: 16px;">Hi ${this.firstName},</p>
+      <p style="text-align: left; margin: 20px 0;">Thank you for signing up! To complete your registration, please verify your email address by clicking the button below:</p>
+      <div style="text-align: left; margin: 20px 0;">
+        <a href="${this.url}" style="display: inline-block; padding: 12px 20px; font-size: 16px; color: #fff; background-color: #007bff; text-decoration: none; border-radius: 5px; text-align: center;">
+          Verify Your Email
+        </a>
+      </div>
+      <p style="text-align: left;">If you have any questions, feel free to <a href="mailto:support@yourblog.com" style="color: #007bff; text-decoration: none;">contact our support team</a>.</p>
+      <p style="text-align: left;">Happy Blogging!</p>
+      <p style="text-align: left;">The MERN Blog Team</p>
     </div>
-  `;
+    `;
 
     // Send the email
-    await this.send(html, "Welcome to Flipkart! Please Verify Your Email");
+    await this.send(html, "Welcome to MERN Blog! Please Verify Your Email");
   }
 
   // Send a password reset email
   async sendPasswordReset() {
     // Define HTML content for password reset email
     const html = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-      <h1>Password Reset Request</h1>
-      <p>Hi ${this.firstName},</p>
-      <p>We received a request to reset your password. If you did not request this, please ignore this email. If you did, click the button below to reset your password:</p>
-      <p><a href="${this.url}" style="display: inline-block; padding: 10px 20px; font-size: 16px; color: #fff; background-color: #007bff; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
-      <p>This link is valid for only 10 minutes. After that, it will expire and you will need to request a new password reset.</p>
-      <p>If you have any questions, feel free to <a href="mailto:support@flipkart.com" style="color: #007bff; text-decoration: none;">contact our support team</a>.</p>
-      <p>Best regards,</p>
-      <p>The Flipkart Team</p>
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px; max-width: 600px; margin: 0 auto;">
+      <h1 style="color: #333; text-align: left;">Password Reset Request</h1>
+      <p style="text-align: left; font-size: 16px;">Hi ${this.firstName},</p>
+      <p style="text-align: left; margin: 20px 0;">We received a request to reset your password. If you did not request this, please ignore this email. If you did, click the button below to reset your password:</p>
+      <div style="text-align: left; margin: 30px 0;">
+        <a href="${this.url}" style="display: inline-block; padding: 12px 20px; font-size: 16px; color: #fff; background-color: #007bff; text-decoration: none; border-radius: 5px; text-align: center;">
+          Reset Password
+        </a>
+      </div>
+      <p style="text-align: left;">This link is valid for only 10 minutes. After that, it will expire and you will need to request a new password reset.</p>
+      <p style="text-align: left;">If you have any questions, feel free to <a href="mailto:support@yourblog.com" style="color: #007bff; text-decoration: none;">contact our support team</a>.</p>
+      <p style="text-align: left;">Best regards,</p>
+      <p style="text-align: left;">The MERN Blog Team</p>
     </div>
-  `;
+    `;
     await this.send(
       html,
       "Your password reset token (valid only for 10 minutes)"
