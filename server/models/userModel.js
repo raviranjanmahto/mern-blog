@@ -28,6 +28,7 @@ const userSchema = new mongoose.Schema(
       required: [true, "Password is required!"],
       select: false,
     },
+    passwordChangeAt: Date,
     passwordResetToken: String,
     passwordResetExpires: Date,
     role: {
@@ -65,8 +66,14 @@ userSchema.pre("save", async function (next) {
   // Hash the password with cost of 11
   this.password = await bcrypt.hash(this.password, 11);
 
-  // Delete the passwordConfirm field
-  this.passwordConfirm = undefined;
+  next();
+});
+
+// Method to update password change at timestamp
+userSchema.pre("save", function (next) {
+  if (!this.isModified("password") || this.isNew) return next();
+
+  this.passwordChangeAt = Date.now() - 1000;
   next();
 });
 
@@ -100,6 +107,15 @@ userSchema.methods.createToken = function (type, next) {
   } else {
     return next(new AppError("Invalid token type: " + type, 400));
   }
+};
+
+// Method to check if the token is valid
+userSchema.methods.changePasswordAfter = function (JWTTimestamp) {
+  if (this.passwordChangeAt)
+    return JWTTimestamp < this.passwordChangeAt.getTime() / 1000;
+
+  // False means no change
+  return false;
 };
 
 // Virtual to hide certain fields when converting to JSON
