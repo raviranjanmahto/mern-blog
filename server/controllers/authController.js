@@ -6,6 +6,7 @@ const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 const sendCookieToken = require("../utils/cookieToken");
 const Email = require("../utils/sendEmail");
+const sendResponse = require("../utils/sendResponse");
 
 exports.signup = catchAsync(async (req, res, next) => {
   const { email, name, password } = req.body;
@@ -39,14 +40,14 @@ exports.login = catchAsync(async (req, res, next) => {
 
 exports.logout = catchAsync(async (req, res, next) => {
   res.clearCookie("token");
-  res.status(200).json({ status: true });
+  sendResponse(res, 200, true, null, "Logged out successfully");
 });
 
 exports.delete = catchAsync(async (req, res, next) => {
   const user = await User.findByIdAndUpdate(req.user._id, { active: false });
   if (!user) return next(new AppError("User not found!", 404));
 
-  res.status(200).json({ status: true, data: null });
+  sendResponse(res, 200, true, null, "Deleted successfully");
 });
 
 exports.updateMe = catchAsync(async (req, res, next) => {
@@ -56,12 +57,13 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     { name, email },
     { new: true, runValidators: true }
   );
-  res.status(200).json({ status: true, data: user });
+  sendResponse(res, 200, true, user, "Updated successfully");
 });
 
 exports.getMe = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.user._id);
   res.status(200).json({ status: true, user });
+  sendResponse(res, 200, true, user);
 });
 
 exports.forgotPassword = catchAsync(async (req, res, next) => {
@@ -85,21 +87,13 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
     // Create instance of Email class and send password reset email
     await new Email(user, resetURL).sendPasswordReset();
 
-    res.status(200).json({
-      status: true,
-      message: "Token sent to email!",
-    });
+    sendResponse(res, 200, true, null, "Token sent successfully");
   } catch (err) {
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     await user.save({ validateBeforeSave: false });
 
-    return next(
-      new AppError(
-        "There was an error sending the email. Try again later!",
-        500
-      )
-    );
+    return next(new AppError("Error while sending password reset email", 500));
   }
 });
 
@@ -126,10 +120,7 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
 
   await user.save();
 
-  res.status(200).json({
-    status: true,
-    message: "Password has been reset successfully!",
-  });
+  sendResponse(res, 200, true, null, "Password updated successfully");
 });
 
 exports.updatePassword = catchAsync(async (req, res, next) => {
@@ -155,14 +146,14 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
 
 exports.getAllUsers = catchAsync(async (req, res, next) => {
   const users = await User.find({});
-  res.status(200).json({ status: true, data: users });
+  sendResponse(res, 200, true, users);
 });
 
 exports.protect = catchAsync(async (req, res, next) => {
   const token = req.cookies.token;
 
   // Check if token exists
-  if (!token) return next(new AppError("You are not logged in!", 401));
+  if (!token) return next(new AppError("Please login to get access", 401));
 
   // Verify token
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
