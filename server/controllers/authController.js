@@ -45,24 +45,24 @@ exports.logout = catchAsync(async (req, res, next) => {
 
 exports.delete = catchAsync(async (req, res, next) => {
   const user = await User.findByIdAndUpdate(req.user._id, { active: false });
-  if (!user) return next(new AppError("User not found!", 404));
 
   sendResponse(res, 200, true, null, "Deleted successfully");
 });
 
 exports.updateMe = catchAsync(async (req, res, next) => {
   const { name, email } = req.body;
-  const user = await User.findByIdAndUpdate(
-    req.user._id,
-    { name, email },
-    { new: true, runValidators: true }
-  );
+  const user = await User.findById(req.user._id);
+
+  if (name) user.name = name;
+  if (email) user.email = email;
+
+  await user.save({ validateModifiedOnly: true });
+
   sendResponse(res, 200, true, user, "Updated successfully");
 });
 
 exports.getMe = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.user._id);
-  res.status(200).json({ status: true, user });
   sendResponse(res, 200, true, user);
 });
 
