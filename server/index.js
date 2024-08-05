@@ -22,6 +22,8 @@ const port = process.env.PORT || 7018;
 
 const app = express();
 
+app.set("trust proxy", 1); // Trust the first proxy in the chain
+
 // Allow requests from specific origins
 const corsOptions = {
   origin: process.env.CORS_ORIGIN,
