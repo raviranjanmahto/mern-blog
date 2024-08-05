@@ -225,7 +225,9 @@ exports.protect = catchAsync(async (req, res, next) => {
 
   // Check if user changed password after the token was issued!
   if (currentUser.changePasswordAfter(decoded.iat))
-    return next(new AppError("Password changed. Please log in again", 401));
+    return next(
+      new AppError("User changed password recently. Please log in again", 401)
+    );
 
   // Grant access to protected route
   req.user = currentUser;
@@ -245,6 +247,12 @@ exports.refreshToken = catchAsync(async (req, res, next) => {
   const currentUser = await User.findById(decoded.id);
   if (!currentUser) return next(new AppError("User no longer exists!", 401));
 
+  // Check if user changed password after the token was issued!
+  if (currentUser.changePasswordAfter(decoded.iat))
+    return next(
+      new AppError("User changed password recently. Please log in again", 401)
+    );
+
   // Generate new access token
   const newAccessToken = signToken(
     currentUser._id,
@@ -252,11 +260,24 @@ exports.refreshToken = catchAsync(async (req, res, next) => {
     process.env.JWT_EXPIRES_IN || "1d"
   );
 
+  const newRefreshToken = signToken(
+    currentUser._id,
+    process.env.JWT_REFRESH_SECRET,
+    process.env.JWT_REFRESH_EXPIRES_IN || "90d"
+  );
+
   res.cookie("accessToken", newAccessToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+  });
+
+  res.cookie("refreshToken", newRefreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    expires: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days
   });
 
   sendResponse(res, 200, true);

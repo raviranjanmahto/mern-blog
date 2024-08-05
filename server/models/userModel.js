@@ -66,14 +66,9 @@ userSchema.pre("save", async function (next) {
   // Hash the password with cost of 11
   this.password = await bcrypt.hash(this.password, 11);
 
-  next();
-});
+  if (this.isModified("password") && !this.isNew)
+    this.passwordChangeAt = Date.now() - 1000; // Ensure the token is created after this time
 
-// Method to update password change at timestamp
-userSchema.pre("save", function (next) {
-  if (!this.isModified("password") || this.isNew) return next();
-
-  this.passwordChangeAt = Date.now() - 1000;
   next();
 });
 
@@ -125,6 +120,8 @@ userSchema.methods.toJSON = function () {
   delete userObject.role;
   delete userObject.verified;
   delete userObject.active;
+  delete userObject.updatedAt;
+  delete userObject.passwordChangeAt;
   delete userObject.__v;
   return userObject;
 };
