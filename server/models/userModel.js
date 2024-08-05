@@ -47,7 +47,6 @@ const userSchema = new mongoose.Schema(
     emailVerified: {
       type: Boolean,
       default: false,
-      select: false,
     },
     active: {
       type: Boolean,
@@ -118,9 +117,9 @@ userSchema.methods.toJSON = function () {
   const userObject = this.toObject();
   delete userObject.password;
   delete userObject.role;
-  delete userObject.verified;
   delete userObject.active;
   delete userObject.updatedAt;
+  delete userObject.emailVerified;
   delete userObject.passwordChangeAt;
   delete userObject.__v;
   return userObject;

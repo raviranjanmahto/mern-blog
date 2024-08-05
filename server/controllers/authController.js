@@ -18,7 +18,7 @@ exports.signup = catchAsync(async (req, res, next) => {
     return next(new AppError("Email already in use, Please login.", 400));
   const user = await User.create({ name, email, password });
 
-  // Generate a email reset token
+  // Generate a new email verification token
   const resetToken = user.createToken("emailVerification");
   await user.save({ validateBeforeSave: false });
 
@@ -26,11 +26,27 @@ exports.signup = catchAsync(async (req, res, next) => {
     "host"
   )}/api/v1/auth/verify-email/${resetToken}`;
 
-  // send welcome email
-  await new Email(user, URL).sendWelcome();
+  try {
+    // Send welcome email asynchronously
+    await new Email(user, URL).sendWelcome();
 
-  // Send JWT token with user info
-  sendCookieToken(user, 201, res);
+    // If email sending is successful, send the response
+    sendResponse(
+      res,
+      201,
+      true,
+      null,
+      "Sign Up Success, Please verify your email address"
+    );
+  } catch (error) {
+    // If sending email fails, delete the user
+    await User.findByIdAndDelete(user._id);
+
+    // Return an error response
+    return next(
+      new AppError("Fail to send email. Please try again later.", 500)
+    );
+  }
 });
 
 exports.login = catchAsync(async (req, res, next) => {
@@ -45,7 +61,34 @@ exports.login = catchAsync(async (req, res, next) => {
   if (!user || !(await user.comparePassword(password)))
     return next(new AppError("Invalid email or password!", 401));
 
-  // Send JWT token with user info
+  // Check if email is verified
+  if (!user.emailVerified) {
+    // Generate a new email verification token
+    const resetToken = user.createToken("emailVerification");
+    await user.save({ validateBeforeSave: false });
+
+    const URL = `${req.protocol}://${req.get(
+      "host"
+    )}/api/v1/auth/verify-email/${resetToken}`;
+
+    // Send verification email
+    try {
+      await new Email(user, URL).sendWelcome();
+      return sendResponse(
+        res,
+        201,
+        true,
+        null,
+        "Email not verified. Check your inbox for a verification link."
+      );
+    } catch (err) {
+      return next(
+        new AppError("Failed to send verification email. Try again later.", 500)
+      );
+    }
+  }
+
+  // Send JWT token with user info if email is verified
   sendCookieToken(user, 200, res);
 });
 
