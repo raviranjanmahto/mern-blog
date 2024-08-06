@@ -3,30 +3,32 @@ const { google } = require("googleapis");
 const { OAuth2 } = google.auth;
 const { CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN, EMAIL } = process.env;
 
+// Email class for handling email sending
 module.exports = class Email {
   constructor(user, url) {
-    // Set user email, first name, URL, and the sender's email
-    this.to = user.email;
-    this.firstName = user.name.split(" ")[0];
-    this.url = url;
-    this.from = `MERN-Blog <${EMAIL}>`;
+    // Initialize the email properties
+    this.to = user.email; // Recipient's email address
+    this.firstName = user.name.split(" ")[0]; // Extract the recipient's first name
+    this.url = url; // URL for email verification or password reset
+    this.from = `MERN-Blog <${EMAIL}>`; // Sender's email address
   }
 
+  // Create a new transport using OAuth2 for secure email sending
   async newTransport() {
-    // Create OAuth2 client with credentials
+    // Create an OAuth2 client with Google API credentials
     const oAuth2Client = new OAuth2(
       CLIENT_ID,
       CLIENT_SECRET,
-      "https://developers.google.com/oauthplayground" // Redirect URI
+      "https://developers.google.com/oauthplayground" // Redirect URI for OAuth2
     );
 
     // Set OAuth2 client credentials
     oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
 
-    // Get access token
+    // Obtain the access token
     const accessToken = await oAuth2Client.getAccessToken();
 
-    // Return nodemailer transport configured with OAuth2
+    // Return a nodemailer transport configured with OAuth2
     return nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -40,9 +42,9 @@ module.exports = class Email {
     });
   }
 
-  // Send the actual email
+  // Send an email with specified HTML content and subject
   async send(html, subject) {
-    // Define email options
+    // Define email options including sender, recipient, subject, and HTML content
     const mailOptions = {
       from: this.from,
       to: this.to,
@@ -55,9 +57,9 @@ module.exports = class Email {
     await transport.sendMail(mailOptions);
   }
 
-  // Send a verification email
+  // Send a welcome email to new users
   async sendWelcome() {
-    // Define HTML content for welcome email
+    // Define HTML content for the welcome email
     const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px; max-width: 600px; margin: 0 auto;">
       <h1 style="color: #333; text-align: left;">Welcome to Our Blog!</h1>
@@ -74,13 +76,13 @@ module.exports = class Email {
     </div>
     `;
 
-    // Send the email
+    // Send the welcome email
     await this.send(html, "Welcome to MERN Blog! Please Verify Your Email");
   }
 
   // Send a password reset email
   async sendPasswordReset() {
-    // Define HTML content for password reset email
+    // Define HTML content for the password reset email
     const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px; max-width: 600px; margin: 0 auto;">
       <h1 style="color: #333; text-align: left;">Password Reset Request</h1>
@@ -97,6 +99,8 @@ module.exports = class Email {
       <p style="text-align: left;">The MERN Blog Team</p>
     </div>
     `;
+
+    // Send the password reset email
     await this.send(
       html,
       "Your password reset token (valid only for 10 minutes)"

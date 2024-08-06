@@ -1,15 +1,18 @@
 const AppError = require("../utils/appError");
 
+// Handles cast errors for invalid data types
 const handleCastErrorDb = err => {
   return new AppError(`Invalid ${err.path}: ${err.value._id}`, 400);
 };
 
+// Handles validation errors for invalid input data
 const handleValidationErrorDb = err => {
   const errors = Object.values(err.errors).map(el => el.message);
   const message = `Invalid input data. ${errors.join(". ")}`;
   return new AppError(message, 400);
 };
 
+// Handles duplicate field errors (e.g., unique constraint violations)
 const handleDuplicateFieldDb = err => {
   const name = Object.keys(err.keyValue)[0];
   const value = Object.values(err.keyValue)[0];
@@ -17,13 +20,14 @@ const handleDuplicateFieldDb = err => {
   return new AppError(message, 400);
 };
 
-// GLOBAL ERROR MIDDLEWARES
+// Global error handling middleware
 module.exports = (err, req, res, next) => {
+  // Set default error properties
   err.statusCode = err.statusCode || 500;
   err.status = err.status ?? "error";
   err.message = err.message || "Something went wrong!";
 
-  // ERROR IN DEVELOPMENT
+  // Error handling in development environment
   if (process.env.NODE_ENV === "development")
     return res.status(err.statusCode).json({
       status: err.status,
@@ -32,20 +36,21 @@ module.exports = (err, req, res, next) => {
       error: err,
       stack: err.stack || null,
     });
-  //ERROR IN PRODUCTION
+  // Error handling in production environment
   else if (process.env.NODE_ENV === "production") {
+    // Handle specific error types
     if (err.name === "CastError") err = handleCastErrorDb(err);
     if (err.name === "ValidationError") err = handleValidationErrorDb(err);
     if (err.code === 11000) err = handleDuplicateFieldDb(err);
 
+    // Handle operational errors (trusted errors)
     if (err.isOperational)
-      // OPERATIONAL ERROR, TRUSTED ERROR, SEND MESSAGE TO THE CLIENT.
       return res.status(err.statusCode).json({
         status: err.status,
         message: err.message,
       });
 
-    // ELSE UNKNOWN ERROR OR PROGRAMMING ERROR, SEND GENERIC MESSAGE TO CLIENT
+    // Handle unknown or programming errors (send a generic message to the client)
     return res.status(err.statusCode).json({
       status: "error",
       message: "Something went very wrong!!!",
