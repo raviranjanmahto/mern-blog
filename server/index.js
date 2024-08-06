@@ -1,4 +1,11 @@
-const dotenv = require("dotenv").config();
+// Handle uncaught exceptions
+process.on("uncaughtException", err => {
+  console.log("UNCAUGHT EXCEPTION!💥💥💥🙄💥💥💥 Shutting down... ");
+  console.log(err.name, err.message);
+  process.exit(1); // Exit the process to avoid inconsistent state
+});
+
+require("dotenv").config();
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
@@ -21,20 +28,6 @@ const cacheRoutes = require("./routes/cacheRoute");
 const port = process.env.PORT || 7018;
 
 const app = express();
-
-// Handle uncaught exceptions
-process.on("uncaughtException", err => {
-  console.log("UNCAUGHT EXCEPTION!💥💥💥🙄💥💥💥 Shutting down... ");
-  console.error(err.message);
-  process.exit(1); // Exit the process to avoid inconsistent state
-});
-
-// Handle unhandled promise rejections
-process.on("unhandledRejection", err => {
-  console.log("UNHANDLED REJECTION!💥💥💥🙄💥💥💥 Shutting down... ");
-  console.error(err.message);
-  process.exit(1); // Exit the process to avoid inconsistent state
-});
 
 // Configure Express to trust the first proxy
 app.set("trust proxy", 1);
@@ -105,3 +98,10 @@ app.use(errorGlobalMiddleware);
 
 // Start the server and listen on the specified port
 app.listen(port, () => console.log(`Server is listening on port ${port}...`));
+
+// Handle unhandled promise rejections
+process.on("unhandledRejection", err => {
+  console.log("UNHANDLED REJECTION!💥💥💥🙄💥💥💥 Shutting down... ");
+  console.error(err.name, err.message);
+  process.exit(1); // Exit the process to avoid inconsistent state
+});

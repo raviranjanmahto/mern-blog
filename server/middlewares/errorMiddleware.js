@@ -20,6 +20,16 @@ const handleDuplicateFieldDb = err => {
   return new AppError(message, 400);
 };
 
+// Handles token expired errors
+const handleTokenExpiredError = () => {
+  return new AppError("Your token has expired. Please log in again.", 401);
+};
+
+// Handles JSON Web Token errors (e.g., invalid signature)
+const handleJsonWebTokenError = () => {
+  return new AppError("Invalid token. Please log in again.", 401);
+};
+
 // Global error handling middleware
 module.exports = (err, req, res, next) => {
   // Set default error properties
@@ -42,6 +52,8 @@ module.exports = (err, req, res, next) => {
     if (err.name === "CastError") err = handleCastErrorDb(err);
     if (err.name === "ValidationError") err = handleValidationErrorDb(err);
     if (err.code === 11000) err = handleDuplicateFieldDb(err);
+    if (err.name === "TokenExpiredError") err = handleTokenExpiredError();
+    if (err.name === "JsonWebTokenError") err = handleJsonWebTokenError();
 
     // Handle operational errors (trusted errors)
     if (err.isOperational)
