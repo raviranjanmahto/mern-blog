@@ -16,77 +16,92 @@ const errorGlobalMiddleware = require("./middlewares/errorMiddleware");
 const authRoutes = require("./routes/userRoute");
 const blogRoutes = require("./routes/blogRoute");
 const commentRoutes = require("./routes/commentRoute");
-const cacheRoutes = require("./routes/cacheRoute"); // Remove in production
+const cacheRoutes = require("./routes/cacheRoute");
 
 const port = process.env.PORT || 7018;
 
 const app = express();
 
-app.set("trust proxy", 1); // Trust the first proxy in the chain
+// Handle uncaught exceptions
+process.on("uncaughtException", err => {
+  console.log("UNCAUGHT EXCEPTION!💥💥💥🙄💥💥💥 Shutting down... ");
+  console.error(err.message);
+  process.exit(1); // Exit the process to avoid inconsistent state
+});
 
-// Allow requests from specific origins
+// Handle unhandled promise rejections
+process.on("unhandledRejection", err => {
+  console.log("UNHANDLED REJECTION!💥💥💥🙄💥💥💥 Shutting down... ");
+  console.error(err.message);
+  process.exit(1); // Exit the process to avoid inconsistent state
+});
+
+// Configure Express to trust the first proxy
+app.set("trust proxy", 1);
+
+// Configure CORS to allow requests from specific origins
 const corsOptions = {
   origin: process.env.CORS_ORIGIN,
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true, // Allow credentials
+  credentials: true, // Allow credentials to be included in CORS requests
 };
 
 app.use(cors(corsOptions));
 
-// Set security HTTP headers
+// Set security HTTP headers for improved security
 app.use(helmet());
 
-// Rate limiter middleware
-const limiter = rateLimit({
+// Set up rate limiting for /api routes to prevent abuse
+const apiRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  max: 100, // Limit each IP to 100 requests per window
   handler: (req, res, next) =>
     next(new AppError("Too many requests, please try again later", 429)),
 });
 
-// Apply rate limiter to all requests
-app.use(limiter);
+// Apply rate limiter middleware only to routes starting with /api
+app.use("/api", apiRateLimiter);
 
-// Enable compression
+// Enable compression for response bodies to improve performance
 app.use(compression());
 
-// Body parser, reading data from body into req.body
+// Parse incoming JSON request bodies with a size limit
 app.use(express.json({ limit: "10kb" }));
 
-// Parse cookies from requests
+// Parse cookies from request headers
 app.use(cookieParser());
 
-// Data sanitization against NoSQL query injection
+// Sanitize user input to prevent NoSQL injection attacks
 app.use(mongoSanitize());
 
-// Prevent parameter pollution
+// Prevent HTTP parameter pollution attacks
 app.use(hpp());
 
-// Development APIs logging middleware
+// Log HTTP requests in development mode
 if (process.env.NODE_ENV === "development") app.use(morgan("dev"));
 
-// Database connection
+// Connect to the MongoDB database
 dbConnect(process.env.DATABASE_URI);
 
-// health check
+// Health check endpoint
 app.get("/", (req, res) => {
   sendResponse(res, 200, true, null, "Server is up and running...");
 });
 
-// Routes
+// Set up routes for various API endpoints
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/blog", blogRoutes);
 app.use("/api/v1/comment", commentRoutes);
-app.use("/api/v1/cache", cacheRoutes); // Remove in production
+app.use("/api/v1/cache", cacheRoutes);
 
-// 404 error handler for all other routes
+// Handle 404 errors for all other routes
 app.all("*", (req, res, next) =>
   next(new AppError(`Can't find ${req.originalUrl} on this server`, 404))
 );
 
-// Global error handler
+// Global error handling middleware
 app.use(errorGlobalMiddleware);
 
-// Server listening
+// Start the server and listen on the specified port
 app.listen(port, () => console.log(`Server is listening on port ${port}...`));
