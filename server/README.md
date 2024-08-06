@@ -35,6 +35,7 @@ npm install
 
 ## Create a .env file in the server directory with the following content:
 
+```bash
 NODE_ENV=your-node-environment
 PORT=your-port-number
 CORS_ORIGIN=your-cors-origin
@@ -47,6 +48,7 @@ CLIENT_ID=your-client-id
 CLIENT_SECRET=your-client-secret
 REFRESH_TOKEN=your-refresh-token
 EMAIL=your-email-address
+```
 
 ## Follow these steps to start the server locally:
 
