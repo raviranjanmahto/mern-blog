@@ -26,7 +26,7 @@ exports.signup = catchAsync(async (req, res, next) => {
   const token = user.createToken("emailVerification");
   await user.save({ validateBeforeSave: false });
 
-  const URL = `${req.protocol}://${req.get("host")}/verify-email/${token}`;
+  const URL = `${process.env.CLIENT_URL}/verify-email/${token}`;
 
   try {
     // Send welcome email asynchronously
@@ -105,7 +105,7 @@ exports.resendVerificationEmail = catchAsync(async (req, res, next) => {
   const token = user.createToken("emailVerification");
   await user.save({ validateBeforeSave: false });
 
-  const URL = `${req.protocol}://${req.get("host")}/verify-email/${token}`;
+  const URL = `${process.env.CLIENT_URL}/verify-email/${token}`;
 
   try {
     // Send new verification email asynchronously
@@ -189,7 +189,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   await user.save({ validateBeforeSave: false });
 
   // Create reset URL
-  const URL = `${req.protocol}://${req.get("host")}/reset-password/${token}`;
+  const URL = `${process.env.CLIENT_URL}/reset-password/${token}`;
 
   // Send password reset email
   try {

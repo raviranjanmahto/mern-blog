@@ -35,7 +35,7 @@ app.set("trust proxy", 1);
 
 // Configure CORS to allow requests from specific origins
 const corsOptions = {
-  origin: true, // Allow requests from the same origin
+  origin: process.env.CLIENT_URL,
   methods: ["GET", "POST", "PATCH", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true, // Allow credentials to be included in CORS requests
@@ -71,7 +71,7 @@ if (process.env.NODE_ENV === "development") app.use(morgan("dev"));
 dbConnect(process.env.DATABASE_URI);
 
 // Health check endpoint
-app.get("/api/v1/ping", (req, res) => {
+app.get("/", (req, res) => {
   sendResponse(res, 200, true, null, "Server is up and running...");
 });
 
@@ -80,14 +80,6 @@ app.use("/api/v1/auth", apiRateLimiter(20), authRoutes);
 app.use("/api/v1/blog", blogRoutes);
 app.use("/api/v1/comment", commentRoutes);
 app.use("/api/v1/cache", cacheRoutes);
-
-// Serve the static files from the React app client side
-app.use(express.static(path.join(__dirname, "../client/dist")));
-
-// Serve the React client app
-app.get("*", (req, res) =>
-  res.sendFile(path.resolve(__dirname, "../client/dist", "index.html"))
-);
 
 // Handle 404 errors for all other routes
 app.all("*", (req, res, next) =>
@@ -103,6 +95,6 @@ app.listen(port, () => console.log(`Server is listening on port ${port}...`));
 // Handle unhandled promise rejections
 process.on("unhandledRejection", err => {
   console.log("UNHANDLED REJECTION!💥💥💥🙄💥💥💥 Shutting down... ");
-  console.error(err.name, err.message);
+  console.log(err.name, err.message);
   process.exit(1); // Exit the process to avoid inconsistent state
 });

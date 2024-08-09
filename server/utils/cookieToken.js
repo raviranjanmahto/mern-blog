@@ -25,7 +25,7 @@ const sendCookieToken = (user, statusCode, res) => {
   const cookieOptions = {
     httpOnly: true, // Cookie is only accessible via HTTP(S), not JavaScript
     secure: process.env.NODE_ENV === "production", // Set secure flag only in production
-    sameSite: "strict", // Prevents CSRF attacks by restricting cross-site request
+    sameSite: "None", // Allows cookies to be sent with cross-site requests
   };
 
   // Set access token cookie to expire in 24 hours
