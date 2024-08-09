@@ -82,11 +82,11 @@ app.use("/api/v1/comment", commentRoutes);
 app.use("/api/v1/cache", cacheRoutes);
 
 // Serve the static files from the React app client side
-app.use(express.static(path.join(__dirname, "../client/dist")));
+app.use(express.static(path.join(__dirname, "../client")));
 
 // Serve the React client app
 app.get("*", (req, res) =>
-  res.sendFile(path.resolve(__dirname, "../client/dist", "index.html"))
+  res.sendFile(path.resolve(__dirname, "../client", "index.html"))
 );
 
 // Handle 404 errors for all other routes
