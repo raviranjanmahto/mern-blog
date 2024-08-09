@@ -7,6 +7,8 @@ router.post("/login", authController.login); // Route to handle user login
 router.post("/forgot-password", authController.forgotPassword); // Route to handle forgot password request
 router.patch("/reset-password/:token", authController.resetPassword); // Route to handle password reset using a token
 router.get("/verify-email/:token", authController.verifyEmail); // Route to verify user email address using a token
+router.post("/resend-verification", authController.resendVerificationEmail); // Route to resend verification email
+router.get("/verify-token", authController.protect); // Route to verify access token
 router.post("/refresh-token", authController.refreshToken); // Route to refresh authentication token
 
 // Middleware to protect routes that require authentication

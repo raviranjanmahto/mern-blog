@@ -26,22 +26,11 @@ exports.signup = catchAsync(async (req, res, next) => {
   const token = user.createToken("emailVerification");
   await user.save({ validateBeforeSave: false });
 
-  const URL = `${req.protocol}://${req.get(
-    "host"
-  )}/api/v1/auth/verify-email/${token}`;
+  const URL = `${req.protocol}://${req.get("host")}/verify-email/${token}`;
 
   try {
     // Send welcome email asynchronously
     await new Email(user, URL).sendWelcome();
-
-    // Send response indicating success
-    sendResponse(
-      res,
-      201,
-      true,
-      null,
-      "Sign Up Success, Please verify your email address"
-    );
   } catch (error) {
     // If email sending fails, delete the user
     await User.findByIdAndDelete(user._id);
@@ -51,6 +40,7 @@ exports.signup = catchAsync(async (req, res, next) => {
       new AppError("Fail to send email. Please try again later.", 500)
     );
   }
+  sendCookieToken(user, 201, res);
 });
 
 // Log in a user and send a JWT token if email is verified
@@ -66,33 +56,6 @@ exports.login = catchAsync(async (req, res, next) => {
   if (!user || !(await user.comparePassword(password)))
     return next(new AppError("Invalid email or password!", 401));
 
-  // Check if email is verified
-  if (!user.emailVerified) {
-    // Generate a new email verification token
-    const resetToken = user.createToken("emailVerification");
-    await user.save({ validateBeforeSave: false });
-
-    const URL = `${req.protocol}://${req.get(
-      "host"
-    )}/api/v1/auth/verify-email/${resetToken}`;
-
-    // Send verification email
-    try {
-      await new Email(user, URL).sendWelcome();
-      return sendResponse(
-        res,
-        201,
-        true,
-        null,
-        "Email not verified. Check your inbox for a verification link."
-      );
-    } catch (err) {
-      return next(
-        new AppError("Failed to send verification email. Try again later.", 500)
-      );
-    }
-  }
-
   // Send JWT token with user info if email is verified
   sendCookieToken(user, 200, res);
 });
@@ -102,10 +65,7 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
   const token = req.params.token;
 
   // Hash the token for comparison
-  const hashedToken = crypto
-    .createHash("sha256")
-    .update(req.params.token)
-    .digest("hex");
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
   // Find user with the hashed token and check if token is still valid
   const user = await User.findOne({
@@ -123,6 +83,43 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
 
   // Send response indicating success
   sendResponse(res, 200, true, null, "Email verified successfully");
+});
+
+// Resend verification email
+exports.resendVerificationEmail = catchAsync(async (req, res, next) => {
+  const email = req.body.email;
+
+  if (!email)
+    return next(new AppError("Please provide your email address", 400));
+
+  // Find the user by email
+  const user = await User.findOne({ email });
+  if (!user)
+    return next(new AppError("No user found with that email address", 404));
+
+  // Check if the email is already verified
+  if (user.emailVerified)
+    return next(new AppError("Email already verified", 400));
+
+  // Generate a new email verification token
+  const token = user.createToken("emailVerification");
+  await user.save({ validateBeforeSave: false });
+
+  const URL = `${req.protocol}://${req.get("host")}/verify-email/${token}`;
+
+  try {
+    // Send new verification email asynchronously
+    await new Email(user, URL).sendWelcome();
+  } catch (error) {
+    return next(
+      new AppError(
+        "Failed to send verification email. Please try again later.",
+        500
+      )
+    );
+  }
+
+  sendResponse(res, 200, true, null, "Verification email sent successfully.");
 });
 
 // Log out the user by clearing cookies
@@ -173,7 +170,6 @@ exports.updateMe = catchAsync(async (req, res, next) => {
 
 // Get the current user's details
 exports.getMe = catchAsync(async (req, res, next) => {
-  // Send response with current user's details
   sendResponse(res, 200, true, req.user);
 });
 
@@ -189,17 +185,15 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   if (!user) return next(new AppError("No user found with that email!", 404));
 
   // Generate a password reset token
-  const resetToken = user.createToken("passwordReset");
+  const token = user.createToken("passwordReset");
   await user.save({ validateBeforeSave: false });
 
   // Create reset URL
-  const resetURL = `${req.protocol}://${req.get(
-    "host"
-  )}/api/v1/auth/reset-password/${resetToken}`;
+  const URL = `${req.protocol}://${req.get("host")}/reset-password/${token}`;
 
   // Send password reset email
   try {
-    await new Email(user, resetURL).sendPasswordReset();
+    await new Email(user, URL).sendPasswordReset();
 
     // Send response indicating success
     sendResponse(res, 200, true, null, "Token sent successfully");
@@ -216,14 +210,12 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
 
 // Reset the user's password using the token
 exports.resetPassword = catchAsync(async (req, res, next) => {
-  const { newPassword } = req.body;
-  if (!newPassword) return next(new AppError("Please provide all fields", 400));
+  const token = req.params.token;
+  const password = req.body.password;
+  if (!password) return next(new AppError("Please provide password", 400));
 
   // Hash the token for comparison
-  const hashedToken = crypto
-    .createHash("sha256")
-    .update(req.params.token)
-    .digest("hex");
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
   // Find user with the hashed token and check if token is still valid
   const user = await User.findOne({
@@ -234,7 +226,7 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   if (!user) return next(new AppError("Token is invalid or has expired", 400));
 
   // Set new password and clear reset token
-  user.password = newPassword;
+  user.password = password;
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
 
@@ -269,7 +261,6 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
 // Get all users (admin access only)
 exports.getAllUsers = catchAsync(async (req, res, next) => {
   const users = await User.find({});
-  // Send response with all users
   sendResponse(res, 200, true, users);
 });
 
@@ -278,7 +269,6 @@ exports.getUser = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.params.id);
   if (!user) return next(new AppError("No user found with that ID", 404));
 
-  // Send response with user details
   sendResponse(res, 200, true, user);
 });
 

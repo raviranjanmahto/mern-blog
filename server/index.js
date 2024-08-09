@@ -8,12 +8,12 @@ process.on("uncaughtException", err => {
 require("dotenv").config();
 const express = require("express");
 const morgan = require("morgan");
+const path = require("path");
 const cors = require("cors");
 const hpp = require("hpp");
 const helmet = require("helmet");
 const compression = require("compression");
 const cookieParser = require("cookie-parser");
-const rateLimit = require("express-rate-limit");
 const mongoSanitize = require("express-mongo-sanitize");
 
 const dbConnect = require("./config/dbConnect");
@@ -24,6 +24,7 @@ const authRoutes = require("./routes/userRoute");
 const blogRoutes = require("./routes/blogRoute");
 const commentRoutes = require("./routes/commentRoute");
 const cacheRoutes = require("./routes/cacheRoute");
+const apiRateLimiter = require("./utils/apiRateLimiter");
 
 const port = process.env.PORT || 7018;
 
@@ -34,8 +35,8 @@ app.set("trust proxy", 1);
 
 // Configure CORS to allow requests from specific origins
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN,
-  methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
+  origin: true, // Allow requests from the same origin
+  methods: ["GET", "POST", "PATCH", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true, // Allow credentials to be included in CORS requests
 };
@@ -46,15 +47,7 @@ app.use(cors(corsOptions));
 app.use(helmet());
 
 // Set up rate limiting for /api routes to prevent abuse
-const apiRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
-  handler: (req, res, next) =>
-    next(new AppError("Too many requests, please try again later", 429)),
-});
-
-// Apply rate limiter middleware only to routes starting with /api
-app.use("/api", apiRateLimiter);
+app.use("/api", apiRateLimiter());
 
 // Enable compression for response bodies to improve performance
 app.use(compression());
@@ -78,15 +71,23 @@ if (process.env.NODE_ENV === "development") app.use(morgan("dev"));
 dbConnect(process.env.DATABASE_URI);
 
 // Health check endpoint
-app.get("/", (req, res) => {
+app.get("/api/v1/ping", (req, res) => {
   sendResponse(res, 200, true, null, "Server is up and running...");
 });
 
 // Set up routes for various API endpoints
-app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/auth", apiRateLimiter(20), authRoutes);
 app.use("/api/v1/blog", blogRoutes);
 app.use("/api/v1/comment", commentRoutes);
 app.use("/api/v1/cache", cacheRoutes);
+
+// Serve the static files from the React app client side
+app.use(express.static(path.join(__dirname, "../client/dist")));
+
+// Serve the React client app
+app.get("*", (req, res) =>
+  res.sendFile(path.resolve(__dirname, "../client/dist", "index.html"))
+);
 
 // Handle 404 errors for all other routes
 app.all("*", (req, res, next) =>
